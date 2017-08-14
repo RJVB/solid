@@ -19,20 +19,67 @@
 */
 
 #include "iokitstorage.h"
+#include <CoreFoundation/CoreFoundation.h>
+#include <DiskArbitration/DiskArbitration.h>
 
 using namespace Solid::Backends::IOKit;
 
+class IOKitStorage::Private
+{
+public:
+    Private(IOKitDevice *device)
+        : m_device(device)
+    {
+        daRef = 0;
+        daDict = 0;
+        daSession = DASessionCreate(kCFAllocatorDefault);
+        if (daSession) {
+            const QString devName = m_device->property(QStringLiteral("BSD Name")).toString();
+            daRef = DADiskCreateFromBSDName(kCFAllocatorDefault, daSession, devName.toStdString().c_str());
+            if (daRef) {
+                daDict = DADiskCopyDescription(daRef);
+            }
+        }
+    }
+    virtual ~Private()
+    {
+        if (daDict) {
+            CFRelease(daDict);
+            daDict = 0;
+        }
+        if (daRef) {
+            CFRelease(daRef);
+            daRef = 0;
+        }
+        if (daSession) {
+            CFRelease(daSession);
+            daSession = 0;
+        }
+    }
+
+    const IOKitDevice *m_device;
+    DASessionRef daSession;
+    DADiskRef daRef;
+    CFDictionaryRef daDict;
+};
+
 IOKitStorage::IOKitStorage(IOKitDevice *device)
     : Block(device)
+    , d(new Private(device))
 {
 }
 
 IOKitStorage::~IOKitStorage()
 {
+    delete d;
 }
 
 Solid::StorageDrive::Bus IOKitStorage::bus() const
 {
+//     if (d->daDict) {
+//         CFShow(d->daDict);
+//     }
+
     const QString udi = m_device->udi();
     // TODO: figure out how to return something useful here.
     if (udi.contains(QStringLiteral("/SATA@"))) {
@@ -45,6 +92,13 @@ Solid::StorageDrive::Bus IOKitStorage::bus() const
     }
     if (udi.contains(QStringLiteral("/IOUSBInterface@"))) {
         return Solid::StorageDrive::Usb;
+    }
+    if (d->daDict) {
+        const CFStringRef devProtocol = (const CFStringRef) CFDictionaryGetValue(d->daDict,
+             kDADiskDescriptionDeviceProtocolKey);
+        if (QString::fromCFString(devProtocol) == QStringLiteral("USB")) {
+            return Solid::StorageDrive::Usb;
+        }
     }
     return Solid::StorageDrive::Platform;
 }
@@ -60,12 +114,27 @@ Solid::StorageDrive::DriveType IOKitStorage::driveType() const
     if (udi.contains(QStringLiteral("/SDXC@"))) {
         return Solid::StorageDrive::SdMmc;
     }
+    if (d->daDict) {
+        const CFStringRef devModel = (const CFStringRef) CFDictionaryGetValue(d->daDict,
+             kDADiskDescriptionDeviceModelKey);
+        if (QString::fromCFString(devModel) == QStringLiteral("Compact Flash")) {
+            return Solid::StorageDrive::CompactFlash;
+        }
+    }
     return Solid::StorageDrive::HardDisk;
 }
 
 bool IOKitStorage::isRemovable() const
 {
-    return m_device->property(QLatin1String("Removable")).toBool();
+    bool isExternal = false;
+    if (d->daDict) {
+        const CFBooleanRef isInternal = (const CFBooleanRef) CFDictionaryGetValue(d->daDict,
+            kDADiskDescriptionDeviceInternalKey);
+        if (isInternal) {
+            isExternal = !CFBooleanGetValue(isInternal);
+        }
+    }
+    return isExternal || m_device->property(QLatin1String("Removable")).toBool();
 }
 
 bool IOKitStorage::isHotpluggable() const

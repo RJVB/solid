@@ -46,6 +46,9 @@ public Q_SLOTS:
     bool isRemovable() const Q_DECL_OVERRIDE;
     bool isHotpluggable() const Q_DECL_OVERRIDE;
     qulonglong size() const Q_DECL_OVERRIDE;
+private:
+    class Private;
+    Private *d;
 };
 }
 }

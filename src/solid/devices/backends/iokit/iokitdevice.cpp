@@ -54,10 +54,6 @@ static Solid::DeviceInterface::Type typeFromEntry(const io_registry_entry_t &ent
     if (IOObjectConformsTo(entry, "AppleSmartBattery")) {
         return Solid::DeviceInterface::Battery;
     }
-//     if (IOObjectConformsTo(entry, "IODVDBlockStorageDriver")
-//         || IOObjectConformsTo(entry, "IOBlockStorageDriver")) {
-//         return Solid::DeviceInterface::StorageDrive;
-//     }
     const QString bsdName = QStringLiteral("BSD Name"),
         leaf = QStringLiteral("Leaf");
     if (properties.contains(bsdName) && properties.value(bsdName).toString().startsWith(QStringLiteral("disk"))) {
@@ -70,7 +66,7 @@ static Solid::DeviceInterface::Type typeFromEntry(const io_registry_entry_t &ent
 //     if (IOObjectConformsTo(entry, "IOCDMediaBSDClient")) {
 //         return Solid::DeviceInterface::OpticalDrive;
 //     }
-    qWarning() << "unsupported entry" << entry << "with properties" << properties;
+//     qWarning() << "unsupported entry" << entry << "with properties" << properties;
 
     return Solid::DeviceInterface::Unknown;
 }

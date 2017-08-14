@@ -59,7 +59,7 @@ public:
 
 IOKitVolume::IOKitVolume(IOKitDevice *device)
     : Block(device)
-    , d(new IOKitVolume::Private(device))
+    , d(new Private(device))
 {
 }
 
