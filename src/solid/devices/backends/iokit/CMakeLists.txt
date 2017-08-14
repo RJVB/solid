@@ -6,4 +6,7 @@ set(solid_LIB_SRCS ${solid_LIB_SRCS}
     devices/backends/iokit/iokitgenericinterface.cpp
     devices/backends/iokit/iokitprocessor.cpp
     devices/backends/iokit/iokitbattery.cpp
+    devices/backends/iokit/iokitblock.cpp
+    devices/backends/iokit/iokitstorage.cpp
+    devices/backends/iokit/iokitvolume.cpp
 )

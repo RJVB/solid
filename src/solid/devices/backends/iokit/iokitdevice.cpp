@@ -1,5 +1,6 @@
 /*
     Copyright 2009 Harald Fernengel <harry@kdevelop.org>
+    Copyright 2017 René J.V. Bertin <rjvbertin@gmail.com>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -22,6 +23,8 @@
 #include "iokitgenericinterface.h"
 #include "iokitprocessor.h"
 #include "iokitbattery.h"
+#include "iokitstorage.h"
+#include "iokitvolume.h"
 
 #include <QtCore/qdebug.h>
 
@@ -51,6 +54,23 @@ static Solid::DeviceInterface::Type typeFromEntry(const io_registry_entry_t &ent
     if (IOObjectConformsTo(entry, "AppleSmartBattery")) {
         return Solid::DeviceInterface::Battery;
     }
+//     if (IOObjectConformsTo(entry, "IODVDBlockStorageDriver")
+//         || IOObjectConformsTo(entry, "IOBlockStorageDriver")) {
+//         return Solid::DeviceInterface::StorageDrive;
+//     }
+    const QString bsdName = QStringLiteral("BSD Name"),
+        leaf = QStringLiteral("Leaf");
+    if (properties.contains(bsdName) && properties.value(bsdName).toString().startsWith(QStringLiteral("disk"))) {
+        if (properties.contains(leaf) && properties.value(leaf).toBool() == false) {
+            return Solid::DeviceInterface::StorageDrive;
+        } else {
+            return Solid::DeviceInterface::StorageVolume;
+        }
+    }
+//     if (IOObjectConformsTo(entry, "IOCDMediaBSDClient")) {
+//         return Solid::DeviceInterface::OpticalDrive;
+//     }
+    qWarning() << "unsupported entry" << entry << "with properties" << properties;
 
     return Solid::DeviceInterface::Unknown;
 }
@@ -123,6 +143,9 @@ void IOKitDevicePrivate::init(const QString &udiString, const io_registry_entry_
 
     parentUdi = getParentDeviceUdi(entry);
     type = typeFromEntry(entry, properties);
+    if (type != Solid::DeviceInterface::Unknown) {
+        qWarning() << "Solid: entry" << entry << "is type" << type << "with properties" << properties;
+    }
 
     IOObjectRelease(entry);
 }
@@ -225,6 +248,16 @@ QObject *IOKitDevice::createDeviceInterface(const Solid::DeviceInterface::Type &
     case Solid::DeviceInterface::Battery:
         if (d->type == Solid::DeviceInterface::Battery) {
             iface = new Battery(this);
+        }
+        break;
+    case Solid::DeviceInterface::StorageDrive:
+        if (d->type == Solid::DeviceInterface::StorageDrive) {
+            iface = new IOKitStorage(this);
+        }
+        break;
+    case Solid::DeviceInterface::StorageVolume:
+        if (d->type == Solid::DeviceInterface::StorageVolume) {
+            iface = new IOKitVolume(this);
         }
         break;
         // the rest is TODO

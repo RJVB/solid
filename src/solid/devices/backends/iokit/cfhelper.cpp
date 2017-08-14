@@ -1,5 +1,6 @@
 /*
     Copyright 2009 Harald Fernengel <harry@kdevelop.org>
+    Copyright 2017 René J.V. Bertin <rjvbertin@gmail.com>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -47,9 +48,12 @@ static inline T convertCFNumber(const CFNumberRef &num, CFNumberType type)
     return n;
 }
 
-static QVariant q_toVariant(const CFTypeRef &obj)
+static QVariant q_toVariant(const CFTypeRef &obj, bool verbose=false)
 {
     const CFTypeID typeId = CFGetTypeID(obj);
+// 	if (verbose) {
+// 		qWarning() << "CFTypeID for obj" << obj << "=" << typeId << q_toString(CFCopyTypeIDDescription(typeId));
+// 	}
 
     if (typeId == CFStringGetTypeID()) {
         return QVariant(q_toString(static_cast<const CFStringRef>(obj)));
