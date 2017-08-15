@@ -45,6 +45,8 @@ public:
     virtual int maxSpeed() const;
     virtual bool canChangeFrequency() const;
     virtual Solid::Processor::InstructionSets instructionSets() const;
+    static const QString vendor();
+    static const QString product();
 };
 }
 }

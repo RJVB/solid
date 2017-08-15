@@ -28,6 +28,9 @@
 
 #include <QtCore/qdebug.h>
 
+#include <sys/types.h>
+#include <sys/sysctl.h>
+
 #include <IOKit/IOKitLib.h>
 #include <IOKit/usb/IOUSBLib.h>
 #include <IOKit/network/IOEthernetInterface.h>
@@ -110,12 +113,35 @@ static QString getParentDeviceUdi(const io_registry_entry_t &entry)
     return result;
 }
 
+static const QString computerModel()
+{
+    QString qModel = QString();
+    char *model = NULL;
+    size_t size = 0;
+    if (sysctlbyname("hw.model", NULL, &size, NULL, 0) == 0 && size > 0) {
+        model = new char [size];
+        if (sysctlbyname("hw.model", model, &size, NULL, 0) == 0) {
+            qModel= QLatin1String(model);
+        }
+        delete model;
+    }
+    return qModel;
+}
+
 class IOKitDevicePrivate
 {
 public:
     inline IOKitDevicePrivate()
         : type(Solid::DeviceInterface::Unknown)
+        , parent(0)
     {}
+    ~IOKitDevicePrivate()
+    {
+        if (parent) {
+            delete parent;
+            parent = 0;
+        }
+    }
 
     void init(const QString &udiString, const io_registry_entry_t &entry);
 
@@ -123,6 +149,7 @@ public:
     QString parentUdi;
     QMap<QString, QVariant> properties;
     Solid::DeviceInterface::Type type;
+    IOKitDevice *parent;
 };
 
 void IOKitDevicePrivate::init(const QString &udiString, const io_registry_entry_t &entry)
@@ -184,17 +211,98 @@ QString IOKitDevice::parentUdi() const
 
 QString IOKitDevice::vendor() const
 {
-    return QString(); // TODO
+    QString vendor;
+    if (parentUdi().isEmpty()) {
+        return QStringLiteral("Apple");
+    }
+    switch (d->type) {
+    case Solid::DeviceInterface::Processor:
+        return Processor::vendor();
+        break;
+    case Solid::DeviceInterface::StorageDrive:
+        return IOKitStorage(this).vendor();
+        break;
+    case Solid::DeviceInterface::StorageVolume:
+        break;
+    default:
+        vendor = QString();
+        break;
+    }
+    return vendor;
 }
 
 QString IOKitDevice::product() const
 {
+    if (parentUdi().isEmpty()) {
+        return computerModel();
+    }
+    switch (d->type) {
+    case Solid::DeviceInterface::Processor:
+        return Processor::product();
+        break;
+    case Solid::DeviceInterface::StorageDrive:
+        return IOKitStorage(this).product();
+        break;
+    case Solid::DeviceInterface::StorageVolume:
+        break;
+    }
     return QString(); // TODO
 }
 
 QString IOKitDevice::icon() const
 {
-    return QString(); // TODO
+    // adapted from HalDevice::icon()
+    if (parentUdi().isEmpty()) {
+        if (computerModel().contains(QStringLiteral("MacBook"))) {
+            return "computer-laptop";
+        } else {
+            return "computer";
+        }
+
+    } else if (d->type == Solid::DeviceInterface::StorageDrive) {
+        IOKitStorage drive(this);
+        Solid::StorageDrive::DriveType driveType = drive.driveType();
+
+        switch (driveType) {
+        case Solid::StorageDrive::Floppy:
+            return QStringLiteral("media-floppy");
+            break;
+        case Solid::StorageDrive::CdromDrive:
+            return QStringLiteral("drive-optical");
+            break;
+        case Solid::StorageDrive::SdMmc:
+            return QStringLiteral("media-flash-sd-mmc");
+            break;
+        case Solid::StorageDrive::CompactFlash:
+            return QStringLiteral("media-flash-cf");
+            break;
+        }
+        if (drive.bus() == Solid::StorageDrive::Usb) {
+            return QStringLiteral("drive-removable-media-usb");
+        }
+        if (drive.isRemovable()) {
+            return QStringLiteral("drive-removable-media");
+        }
+        return QStringLiteral("drive-harddisk");
+
+    } else if (d->type == Solid::DeviceInterface::StorageVolume) {
+    } else if (d->type == Solid::DeviceInterface::Battery) {
+        return QStringLiteral("battery");
+    } else if (d->type == Solid::DeviceInterface::Processor) {
+        return QStringLiteral("cpu"); // FIXME: Doesn't follow icon spec
+    } else {
+        if (!d->parent) {
+            d->parent = new IOKitDevice(parentUdi());
+        }
+        QString iconName = d->parent->icon();
+
+        if (!iconName.isEmpty()) {
+            return iconName;
+        }
+
+        return QStringLiteral("drive-harddisk");
+    }
+    return QString();
 }
 
 QStringList IOKitDevice::emblems() const
@@ -204,6 +312,11 @@ QStringList IOKitDevice::emblems() const
 
 QString IOKitDevice::description() const
 {
+    switch (d->type) {
+    case Solid::DeviceInterface::StorageDrive:
+        return IOKitStorage(this).description();
+        break;
+    }
     return product(); // TODO
 }
 

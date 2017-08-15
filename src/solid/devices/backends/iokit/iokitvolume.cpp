@@ -21,6 +21,8 @@
 #include "iokitvolume.h"
 #include "iokitgenericinterface.h"
 
+#include <QDebug>
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 
@@ -29,7 +31,7 @@ using namespace Solid::Backends::IOKit;
 class IOKitVolume::Private
 {
 public:
-    Private(IOKitDevice *device)
+    Private(const IOKitDevice *device)
         : m_device(device)
     {
         daSession = DASessionCreate(kCFAllocatorDefault);
@@ -105,7 +107,8 @@ QString IOKitVolume::label() const
     if (d->daRef) {
         CFDictionaryRef dict = DADiskCopyDescription(d->daRef);
         if (dict) {
-//             CFShow(dict);
+            qWarning() << Q_FUNC_INFO;
+            CFShow(dict);
             const CFStringRef volName = (const CFStringRef) CFDictionaryGetValue(dict, kDADiskDescriptionVolumeNameKey);
             volLabel = QString::fromCFString(volName);
             CFRelease(dict);

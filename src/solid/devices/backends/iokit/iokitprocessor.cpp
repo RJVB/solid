@@ -81,3 +81,32 @@ Solid::Processor::InstructionSets Processor::instructionSets() const
     return cpuextensions;
 }
 
+const QString Processor::vendor()
+{
+    QString qVendor = QString();
+    char *vendor = NULL;
+    size_t size = 0;
+    if (sysctlbyname("machdep.cpu.vendor", NULL, &size, NULL, 0) == 0 && size > 0) {
+        vendor = new char [size];
+        if (sysctlbyname("machdep.cpu.vendor", vendor, &size, NULL, 0) == 0) {
+            qVendor = QLatin1String(vendor);
+        }
+        delete vendor;
+    }
+    return qVendor;
+}
+
+const QString Processor::product()
+{
+    QString product = QString();
+    char *brand_string = NULL;
+    size_t size = 0;
+    if (sysctlbyname("machdep.cpu.brand_string", NULL, &size, NULL, 0) == 0 && size > 0) {
+        brand_string = new char [size];
+        if (sysctlbyname("machdep.cpu.brand_string", brand_string, &size, NULL, 0) == 0) {
+            product = QLatin1String(brand_string);
+        }
+        delete brand_string;
+    }
+    return product;
+}

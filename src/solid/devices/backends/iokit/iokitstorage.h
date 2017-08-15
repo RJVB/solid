@@ -37,7 +37,12 @@ class IOKitStorage : public Block, virtual public Solid::Ifaces::StorageDrive
 
 public:
     explicit IOKitStorage(IOKitDevice *device);
+    explicit IOKitStorage(const IOKitDevice *device);
     ~IOKitStorage();
+
+    const QString vendor();
+    const QString product();
+    const QString description();
 
 public Q_SLOTS:
     Solid::StorageDrive::Bus bus() const Q_DECL_OVERRIDE;

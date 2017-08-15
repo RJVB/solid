@@ -19,6 +19,9 @@
 */
 
 #include "iokitstorage.h"
+
+#include <QDebug>
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 
@@ -27,7 +30,7 @@ using namespace Solid::Backends::IOKit;
 class IOKitStorage::Private
 {
 public:
-    Private(IOKitDevice *device)
+    Private(const IOKitDevice *device)
         : m_device(device)
     {
         daRef = 0;
@@ -69,6 +72,12 @@ IOKitStorage::IOKitStorage(IOKitDevice *device)
 {
 }
 
+IOKitStorage::IOKitStorage(const IOKitDevice *device)
+    : Block(0)
+    , d(new Private(device))
+{
+}
+
 IOKitStorage::~IOKitStorage()
 {
     delete d;
@@ -77,6 +86,7 @@ IOKitStorage::~IOKitStorage()
 Solid::StorageDrive::Bus IOKitStorage::bus() const
 {
 //     if (d->daDict) {
+//         qWarning() << Q_FUNC_INFO;
 //         CFShow(d->daDict);
 //     }
 
@@ -149,3 +159,29 @@ qulonglong IOKitStorage::size() const
     return m_device->property(QLatin1String("Size")).toULongLong();
 }
 
+const QString IOKitStorage::vendor()
+{
+    if (d->daDict) {
+        return QString::fromCFString((const CFStringRef) CFDictionaryGetValue(d->daDict,
+             kDADiskDescriptionDeviceVendorKey));
+    }
+    return QString();
+}
+
+const QString IOKitStorage::product()
+{
+    if (d->daDict) {
+        return QString::fromCFString((const CFStringRef) CFDictionaryGetValue(d->daDict,
+             kDADiskDescriptionDeviceModelKey));
+    }
+    return QString();
+}
+
+const QString IOKitStorage::description()
+{
+    if (d->daDict) {
+        return QString::fromCFString((const CFStringRef) CFDictionaryGetValue(d->daDict,
+             kDADiskDescriptionMediaNameKey));
+    }
+    return QString();
+}
