@@ -257,6 +257,9 @@ QString IOKitDevice::vendor() const
     case Solid::DeviceInterface::Processor:
         return Processor::vendor();
         break;
+    case Solid::DeviceInterface::Battery:
+        return property(QStringLiteral("Manufacturer")).toString();
+        break;
     case Solid::DeviceInterface::StorageDrive:
         return IOKitStorage(this).vendor();
         break;
@@ -281,6 +284,9 @@ QString IOKitDevice::product() const
     switch (d->mainType) {
     case Solid::DeviceInterface::Processor:
         return Processor::product();
+        break;
+    case Solid::DeviceInterface::Battery:
+        return property(QStringLiteral("DeviceName")).toString();
         break;
     case Solid::DeviceInterface::StorageDrive:
         return IOKitStorage(this).product();
@@ -359,10 +365,13 @@ QString IOKitDevice::description() const
     case Solid::DeviceInterface::Processor:
         return QStringLiteral("Processor");
         break;
+    case Solid::DeviceInterface::Battery:
+        return QStringLiteral("Apple Smart Battery");
+        break;
     case Solid::DeviceInterface::StorageDrive:
         return IOKitStorage(this).description();
         break;
-   case Solid::DeviceInterface::StorageVolume:
+    case Solid::DeviceInterface::StorageVolume:
         return IOKitVolume(this).description();
         break;
      }
