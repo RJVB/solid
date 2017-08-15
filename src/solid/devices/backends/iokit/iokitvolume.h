@@ -37,6 +37,7 @@ class IOKitVolume : public Block, virtual public Solid::Ifaces::StorageVolume
 
 public:
     IOKitVolume(IOKitDevice *device);
+    IOKitVolume(const IOKitDevice *device);
     virtual ~IOKitVolume();
 
     virtual bool isIgnored() const;
@@ -46,6 +47,11 @@ public:
     virtual QString uuid() const;
     virtual qulonglong size() const;
     virtual QString encryptedContainerUdi() const;
+
+    const QString vendor();
+    const QString product();
+    const QString description();
+
 private:
     class Private;
     Private *d;

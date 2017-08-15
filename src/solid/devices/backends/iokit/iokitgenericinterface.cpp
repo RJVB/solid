@@ -46,6 +46,6 @@ QMap<QString, QVariant> GenericInterface::allProperties() const
 
 bool GenericInterface::propertyExists(const QString &key) const
 {
-    return m_device->propertyExists(key);
+    return m_device->iOKitPropertyExists(key);
 }
 

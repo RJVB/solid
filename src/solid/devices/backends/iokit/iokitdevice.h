@@ -39,6 +39,7 @@ class IOKitDevice : public Solid::Ifaces::Device
 
 public:
     IOKitDevice(const QString &udi);
+    IOKitDevice(const IOKitDevice &device);
     virtual ~IOKitDevice();
 
     virtual QString udi() const;
@@ -54,7 +55,7 @@ public:
 
     virtual QMap<QString, QVariant> allProperties() const;
 
-    virtual bool propertyExists(const QString &key) const;
+    virtual bool iOKitPropertyExists(const QString &key) const;
 
     virtual bool queryDeviceInterface(const Solid::DeviceInterface::Type &type) const;
     virtual QObject *createDeviceInterface(const Solid::DeviceInterface::Type &type);

@@ -29,6 +29,11 @@ Block::Block(IOKitDevice *device)
 {
 }
 
+Block::Block(const IOKitDevice *device)
+    : DeviceInterface(device)
+{
+}
+
 Block::~Block()
 {
 }
@@ -45,6 +50,6 @@ int Block::deviceMinor() const
 
 QString Block::device() const
 {
-    return m_device->property(QLatin1String("BSD Name")).toString();
+    return QStringLiteral("/dev/") + m_device->property(QLatin1String("BSD Name")).toString();
 }
 

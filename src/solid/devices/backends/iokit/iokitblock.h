@@ -37,6 +37,7 @@ class Block : public DeviceInterface, virtual public Solid::Ifaces::Block
 
 public:
     Block(IOKitDevice *device);
+    Block(const IOKitDevice *device);
     virtual ~Block();
 
     virtual int deviceMajor() const;

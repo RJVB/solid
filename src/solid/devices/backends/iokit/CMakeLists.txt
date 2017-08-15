@@ -9,4 +9,5 @@ set(solid_LIB_SRCS ${solid_LIB_SRCS}
     devices/backends/iokit/iokitblock.cpp
     devices/backends/iokit/iokitstorage.cpp
     devices/backends/iokit/iokitvolume.cpp
+    devices/backends/iokit/iokitstorageaccess.cpp
 )

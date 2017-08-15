@@ -24,9 +24,11 @@
 #include "iokitprocessor.h"
 #include "iokitbattery.h"
 #include "iokitstorage.h"
+#include "iokitstorageaccess.h"
 #include "iokitvolume.h"
 
-#include <QtCore/qdebug.h>
+#include <QDebug>
+#include <QSet>
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -40,6 +42,8 @@
 // from cfhelper.cpp
 extern QMap<QString, QVariant> q_toVariantMap(const CFMutableDictionaryRef &dict);
 
+typedef QSet<Solid::DeviceInterface::Type> DeviceInterfaceTypes;
+
 namespace Solid
 {
 namespace Backends
@@ -48,30 +52,47 @@ namespace IOKit
 {
 
 // returns a solid type from an entry and its properties
-static Solid::DeviceInterface::Type typeFromEntry(const io_registry_entry_t &entry,
-        const QMap<QString, QVariant> &properties)
+static DeviceInterfaceTypes typesFromEntry(const io_registry_entry_t &entry,
+        const QMap<QString, QVariant> &properties,
+        Solid::DeviceInterface::Type &mainType)
 {
+    DeviceInterfaceTypes types;
+    mainType = Solid::DeviceInterface::Unknown;
     if (IOObjectConformsTo(entry, "AppleACPICPU")) {
-        return Solid::DeviceInterface::Processor;
+        mainType = Solid::DeviceInterface::Processor;
+        types << mainType;
     }
     if (IOObjectConformsTo(entry, "AppleSmartBattery")) {
-        return Solid::DeviceInterface::Battery;
+        mainType = Solid::DeviceInterface::Battery;
+        types << mainType;
     }
     const QString bsdName = QStringLiteral("BSD Name"),
         leaf = QStringLiteral("Leaf");
+    if (IOObjectConformsTo(entry, "IOCDMedia")) {
+        mainType = Solid::DeviceInterface::OpticalDrive;
+        types << mainType;
+    }
     if (properties.contains(bsdName) && properties.value(bsdName).toString().startsWith(QStringLiteral("disk"))) {
         if (properties.contains(leaf) && properties.value(leaf).toBool() == false) {
-            return Solid::DeviceInterface::StorageDrive;
-        } else {
-            return Solid::DeviceInterface::StorageVolume;
+            if (mainType == Solid::DeviceInterface::Unknown) {
+                mainType = Solid::DeviceInterface::StorageDrive;
+            }
+            types << Solid::DeviceInterface::StorageDrive;
+        } else if (mainType == Solid::DeviceInterface::Unknown) {
+            mainType = Solid::DeviceInterface::StorageVolume;
         }
+        types << Solid::DeviceInterface::StorageVolume;
     }
 //     if (IOObjectConformsTo(entry, "IOCDMediaBSDClient")) {
 //         return Solid::DeviceInterface::OpticalDrive;
 //     }
 //     qWarning() << "unsupported entry" << entry << "with properties" << properties;
 
-    return Solid::DeviceInterface::Unknown;
+    if (types.isEmpty()) {
+        types << mainType;
+    }
+
+    return types;
 }
 
 // gets all properties from an entry into a QMap
@@ -86,6 +107,10 @@ static QMap<QString, QVariant> getProperties(const io_registry_entry_t &entry)
     QMap<QString, QVariant> result = q_toVariantMap(propertyDict);
 
     CFRelease(propertyDict);
+
+    io_name_t className;
+    IOObjectGetClass(entry, className);
+    result["className"] = QString::fromUtf8(className);
 
     return result;
 }
@@ -132,9 +157,10 @@ class IOKitDevicePrivate
 {
 public:
     inline IOKitDevicePrivate()
-        : type(Solid::DeviceInterface::Unknown)
-        , parent(0)
-    {}
+        : parent(0)
+    {
+        type << Solid::DeviceInterface::Unknown;
+    }
     ~IOKitDevicePrivate()
     {
         if (parent) {
@@ -148,7 +174,8 @@ public:
     QString udi;
     QString parentUdi;
     QMap<QString, QVariant> properties;
-    Solid::DeviceInterface::Type type;
+    DeviceInterfaceTypes type;
+    Solid::DeviceInterface::Type mainType;
     IOKitDevice *parent;
 };
 
@@ -160,14 +187,10 @@ void IOKitDevicePrivate::init(const QString &udiString, const io_registry_entry_
 
     properties = getProperties(entry);
 
-    io_name_t className;
-    IOObjectGetClass(entry, className);
-    properties["className"] = QString::fromUtf8(className);
-
     parentUdi = getParentDeviceUdi(entry);
-    type = typeFromEntry(entry, properties);
-    if (type != Solid::DeviceInterface::Unknown) {
-        qWarning() << "Solid: entry" << entry << "is type" << type << "with properties" << properties;
+    type = typesFromEntry(entry, properties, mainType);
+    if (mainType != Solid::DeviceInterface::Unknown) {
+        qDebug() << "Solid: entry" << entry << "is type" << type << "with properties" << properties;
     }
 
     IOObjectRelease(entry);
@@ -194,6 +217,21 @@ IOKitDevice::IOKitDevice(const QString &udi)
     d->init(udi, entry);
 }
 
+IOKitDevice::IOKitDevice(const IOKitDevice &device)
+    : d(new IOKitDevicePrivate)
+{
+    io_registry_entry_t entry = IORegistryEntryFromPath(
+                                    kIOMasterPortDefault,
+                                    device.udi().toLocal8Bit().constData());
+
+    if (entry == MACH_PORT_NULL) {
+        qDebug() << Q_FUNC_INFO << "Tried to create Device from invalid UDI" << device.udi();
+        return;
+    }
+
+    d->init(device.udi(), entry);
+}
+
 IOKitDevice::~IOKitDevice()
 {
     delete d;
@@ -215,7 +253,7 @@ QString IOKitDevice::vendor() const
     if (parentUdi().isEmpty()) {
         return QStringLiteral("Apple");
     }
-    switch (d->type) {
+    switch (d->mainType) {
     case Solid::DeviceInterface::Processor:
         return Processor::vendor();
         break;
@@ -223,6 +261,7 @@ QString IOKitDevice::vendor() const
         return IOKitStorage(this).vendor();
         break;
     case Solid::DeviceInterface::StorageVolume:
+        return IOKitVolume(this).vendor();
         break;
     default:
         vendor = QString();
@@ -236,7 +275,10 @@ QString IOKitDevice::product() const
     if (parentUdi().isEmpty()) {
         return computerModel();
     }
-    switch (d->type) {
+//     if (d->mainType != Solid::DeviceInterface::Unknown) {
+//         qWarning() << Q_FUNC_INFO << "mainType=" << d->mainType;
+//     }
+    switch (d->mainType) {
     case Solid::DeviceInterface::Processor:
         return Processor::product();
         break;
@@ -244,6 +286,7 @@ QString IOKitDevice::product() const
         return IOKitStorage(this).product();
         break;
     case Solid::DeviceInterface::StorageVolume:
+        return IOKitVolume(this).product();
         break;
     }
     return QString(); // TODO
@@ -259,7 +302,7 @@ QString IOKitDevice::icon() const
             return "computer";
         }
 
-    } else if (d->type == Solid::DeviceInterface::StorageDrive) {
+    } else if (d->mainType == Solid::DeviceInterface::StorageDrive) {
         IOKitStorage drive(this);
         Solid::StorageDrive::DriveType driveType = drive.driveType();
 
@@ -285,10 +328,10 @@ QString IOKitDevice::icon() const
         }
         return QStringLiteral("drive-harddisk");
 
-    } else if (d->type == Solid::DeviceInterface::StorageVolume) {
-    } else if (d->type == Solid::DeviceInterface::Battery) {
+    } else if (d->mainType == Solid::DeviceInterface::StorageVolume) {
+    } else if (d->mainType == Solid::DeviceInterface::Battery) {
         return QStringLiteral("battery");
-    } else if (d->type == Solid::DeviceInterface::Processor) {
+    } else if (d->mainType == Solid::DeviceInterface::Processor) {
         return QStringLiteral("cpu"); // FIXME: Doesn't follow icon spec
     } else {
         if (!d->parent) {
@@ -312,16 +355,25 @@ QStringList IOKitDevice::emblems() const
 
 QString IOKitDevice::description() const
 {
-    switch (d->type) {
+    switch (d->mainType) {
+    case Solid::DeviceInterface::Processor:
+        return QStringLiteral("Processor");
+        break;
     case Solid::DeviceInterface::StorageDrive:
         return IOKitStorage(this).description();
         break;
-    }
+   case Solid::DeviceInterface::StorageVolume:
+        return IOKitVolume(this).description();
+        break;
+     }
     return product(); // TODO
 }
 
 QVariant IOKitDevice::property(const QString &key) const
 {
+    if (!d->properties.contains(key)) {
+        return QObject::property(key.toUtf8());
+    }
     return d->properties.value(key);
 }
 
@@ -330,15 +382,29 @@ QMap<QString, QVariant> IOKitDevice::allProperties() const
     return d->properties;
 }
 
-bool IOKitDevice::propertyExists(const QString &key) const
+bool IOKitDevice::iOKitPropertyExists(const QString &key) const
 {
     return d->properties.contains(key);
 }
 
 bool IOKitDevice::queryDeviceInterface(const Solid::DeviceInterface::Type &type) const
 {
-    return (type == Solid::DeviceInterface::GenericInterface
-            || type == d->type);
+    bool ret = false;
+    switch (type) {
+    case Solid::DeviceInterface::GenericInterface:
+        ret = true;
+        break;
+    case Solid::DeviceInterface::StorageAccess:
+        if (d->type.contains(Solid::DeviceInterface::StorageDrive)
+            || d->type.contains(Solid::DeviceInterface::StorageVolume)) {
+            ret = true;
+        }
+        break;
+    default:
+        ret = d->type.contains(type);
+        break;
+    }
+    return ret;
 }
 
 QObject *IOKitDevice::createDeviceInterface(const Solid::DeviceInterface::Type &type)
@@ -350,23 +416,35 @@ QObject *IOKitDevice::createDeviceInterface(const Solid::DeviceInterface::Type &
         iface = new GenericInterface(this);
         break;
     case Solid::DeviceInterface::Processor:
-        if (d->type == Solid::DeviceInterface::Processor) {
+        if (d->type.contains(Solid::DeviceInterface::Processor)) {
             iface = new Processor(this);
         }
         break;
     case Solid::DeviceInterface::Battery:
-        if (d->type == Solid::DeviceInterface::Battery) {
+        if (d->type.contains(Solid::DeviceInterface::Battery)) {
             iface = new Battery(this);
         }
         break;
     case Solid::DeviceInterface::StorageDrive:
-        if (d->type == Solid::DeviceInterface::StorageDrive) {
+        if (d->type.contains(Solid::DeviceInterface::StorageDrive)) {
             iface = new IOKitStorage(this);
         }
         break;
+    case Solid::DeviceInterface::Block:
+        if (d->type.contains(Solid::DeviceInterface::StorageDrive)
+            || d->type.contains(Solid::DeviceInterface::StorageVolume)) {
+            iface = new Block(this);
+        }
+        break;
     case Solid::DeviceInterface::StorageVolume:
-        if (d->type == Solid::DeviceInterface::StorageVolume) {
+        if (d->type.contains(Solid::DeviceInterface::StorageVolume)) {
             iface = new IOKitVolume(this);
+        }
+        break;
+    case Solid::DeviceInterface::StorageAccess:
+        if (d->type.contains(Solid::DeviceInterface::StorageDrive)
+            || d->type.contains(Solid::DeviceInterface::StorageVolume)) {
+            iface = new IOKitStorageAccess(this);
         }
         break;
         // the rest is TODO

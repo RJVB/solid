@@ -73,7 +73,7 @@ IOKitStorage::IOKitStorage(IOKitDevice *device)
 }
 
 IOKitStorage::IOKitStorage(const IOKitDevice *device)
-    : Block(0)
+    : Block(device)
     , d(new Private(device))
 {
 }

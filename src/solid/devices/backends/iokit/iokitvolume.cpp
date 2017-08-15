@@ -65,6 +65,12 @@ IOKitVolume::IOKitVolume(IOKitDevice *device)
 {
 }
 
+IOKitVolume::IOKitVolume(const IOKitDevice *device)
+    : Block(device)
+    , d(new Private(device))
+{
+}
+
 IOKitVolume::~IOKitVolume()
 {
     delete d;
@@ -73,16 +79,21 @@ IOKitVolume::~IOKitVolume()
 bool IOKitVolume::isIgnored() const
 {
     // ignore storage volumes that aren't mounted
-    return m_device->property(QStringLiteral("Open")).toBool() == false;
+    bool isIgnored = m_device->property(QStringLiteral("Open")).toBool() == false;
+    m_device->setProperty("isIgnored", isIgnored);
+    m_device->setProperty("isMounted", !isIgnored);
+    return isIgnored;
 }
 
 Solid::StorageVolume::UsageType IOKitVolume::usage() const
 {
     const QString content = m_device->property(QStringLiteral("Content")).toString();
-
     if (content == QStringLiteral("CD_DA")) {
         // this is (probably) a CD track
         return Solid::StorageVolume::Other;
+    }
+    if (content.contains(QStringLiteral("partition_scheme"))) {
+        return Solid::StorageVolume::PartitionTable;
     }
     return Solid::StorageVolume::FileSystem;
 }
@@ -107,8 +118,8 @@ QString IOKitVolume::label() const
     if (d->daRef) {
         CFDictionaryRef dict = DADiskCopyDescription(d->daRef);
         if (dict) {
-            qWarning() << Q_FUNC_INFO;
-            CFShow(dict);
+//             qWarning() << Q_FUNC_INFO;
+//             CFShow(dict);
             const CFStringRef volName = (const CFStringRef) CFDictionaryGetValue(dict, kDADiskDescriptionVolumeNameKey);
             volLabel = QString::fromCFString(volName);
             CFRelease(dict);
@@ -127,8 +138,49 @@ qulonglong IOKitVolume::size() const
     return m_device->property(QStringLiteral("Size")).toULongLong();
 }
 
-QString Solid::Backends::IOKit::IOKitVolume::encryptedContainerUdi() const
+QString IOKitVolume::encryptedContainerUdi() const
 {
     return QString();
 }
 
+const QString IOKitVolume::vendor()
+{
+    if (d->daRef) {
+        CFDictionaryRef dict = DADiskCopyDescription(d->daRef);
+        if (dict) {
+            QString ret = QString::fromCFString((const CFStringRef) CFDictionaryGetValue(dict,
+                 kDADiskDescriptionDeviceVendorKey));
+            CFRelease(dict);
+            return ret;
+        }
+    }
+    return QString();
+}
+
+const QString IOKitVolume::product()
+{
+    if (d->daRef) {
+        CFDictionaryRef dict = DADiskCopyDescription(d->daRef);
+        if (dict) {
+            QString ret = QString::fromCFString((const CFStringRef) CFDictionaryGetValue(dict,
+                kDADiskDescriptionDeviceModelKey));
+            CFRelease(dict);
+            return ret;
+        }
+    }
+    return QString();
+}
+
+const QString IOKitVolume::description()
+{
+    if (d->daRef) {
+        CFDictionaryRef dict = DADiskCopyDescription(d->daRef);
+        if (dict) {
+            QString ret = QString::fromCFString((const CFStringRef) CFDictionaryGetValue(dict,
+                kDADiskDescriptionMediaNameKey));
+            CFRelease(dict);
+            return ret;
+        }
+    }
+    return QString();
+}
