@@ -15,4 +15,5 @@ set(solid_LIB_SRCS ${solid_LIB_SRCS}
     devices/backends/iokit/iokitvolume.cpp
     devices/backends/iokit/iokitstorageaccess.cpp
     devices/backends/iokit/iokitopticaldrive.cpp
+    devices/backends/iokit/iokitopticaldisc.cpp
 )

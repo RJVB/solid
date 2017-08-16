@@ -27,6 +27,7 @@
 #include "iokitstorageaccess.h"
 #include "iokitvolume.h"
 #include "iokitopticaldrive.h"
+#include "iokitopticaldisc.h"
 
 #include <QDebug>
 #include <QSet>
@@ -73,7 +74,8 @@ static DeviceInterfaceTypes typesFromEntry(const io_registry_entry_t &entry,
         || IOObjectConformsTo(entry, "IODVDMedia")
         || IOObjectConformsTo(entry, "IOCDMedia")) {
         mainType = Solid::DeviceInterface::OpticalDrive;
-        types << mainType;
+        types << mainType
+            << Solid::DeviceInterface::OpticalDisc;
     }
     if (properties.contains(bsdName) && properties.value(bsdName).toString().startsWith(QStringLiteral("disk"))) {
         if (properties.contains(leaf) && properties.value(leaf).toBool() == false) {
@@ -288,6 +290,7 @@ QString IOKitDevice::vendor() const
         break;
     case Solid::DeviceInterface::StorageDrive:
     case Solid::DeviceInterface::OpticalDrive:
+    case Solid::DeviceInterface::OpticalDisc:
         return IOKitStorage(this).vendor();
         break;
     case Solid::DeviceInterface::StorageVolume:
@@ -317,6 +320,7 @@ QString IOKitDevice::product() const
         break;
     case Solid::DeviceInterface::StorageDrive:
     case Solid::DeviceInterface::OpticalDrive:
+    case Solid::DeviceInterface::OpticalDisc:
         return IOKitStorage(this).product();
         break;
     case Solid::DeviceInterface::StorageVolume:
@@ -337,6 +341,7 @@ QString IOKitDevice::description() const
         break;
     case Solid::DeviceInterface::StorageDrive:
     case Solid::DeviceInterface::OpticalDrive:
+    case Solid::DeviceInterface::OpticalDisc:
         return IOKitStorage(this).description();
         break;
     case Solid::DeviceInterface::StorageVolume:
@@ -466,6 +471,11 @@ QObject *IOKitDevice::createDeviceInterface(const Solid::DeviceInterface::Type &
     case Solid::DeviceInterface::OpticalDrive:
         if (d->type.contains(Solid::DeviceInterface::OpticalDrive)) {
             iface = new IOKitOpticalDrive(this);
+        }
+        break;
+    case Solid::DeviceInterface::OpticalDisc:
+        if (d->type.contains(Solid::DeviceInterface::OpticalDisc)) {
+            iface = new IOKitOpticalDisc(this);
         }
         break;
     case Solid::DeviceInterface::StorageDrive:
