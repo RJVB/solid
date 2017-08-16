@@ -1,3 +1,7 @@
+include_directories(
+    ${Qt5Core_PRIVATE_INCLUDE_DIRS}
+)
+
 set(solid_LIB_SRCS ${solid_LIB_SRCS}
     devices/backends/iokit/iokitmanager.cpp
     devices/backends/iokit/iokitdevice.cpp
@@ -10,4 +14,5 @@ set(solid_LIB_SRCS ${solid_LIB_SRCS}
     devices/backends/iokit/iokitstorage.cpp
     devices/backends/iokit/iokitvolume.cpp
     devices/backends/iokit/iokitstorageaccess.cpp
+    devices/backends/iokit/iokitopticaldrive.cpp
 )

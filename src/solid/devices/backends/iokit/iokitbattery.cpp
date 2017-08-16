@@ -155,8 +155,9 @@ bool Battery::isRechargeable() const
 
 bool Battery::isPowerSupply() const
 {
-    // TODO
-    return true;
+    return m_device->iOKitPropertyExists(QStringLiteral("BatteryInstalled"))
+        ? m_device->property(QStringLiteral("BatteryInstalled")).toBool()
+        : true;
 }
 
 Solid::Battery::ChargeState Battery::chargeState() const

@@ -60,6 +60,8 @@ public:
     virtual bool queryDeviceInterface(const Solid::DeviceInterface::Type &type) const;
     virtual QObject *createDeviceInterface(const Solid::DeviceInterface::Type &type);
 
+    bool conformsToIOKitClass(const QString &className) const;
+
 Q_SIGNALS:
     void propertyChanged(const QMap<QString, int> &changes);
     void conditionRaised(const QString &condition, const QString &reason);
