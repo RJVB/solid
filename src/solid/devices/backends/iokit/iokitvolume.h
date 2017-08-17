@@ -24,6 +24,8 @@
 #include <solid/devices/ifaces/storagevolume.h>
 #include "iokitblock.h"
 
+#include <DiskArbitration/DiskArbitration.h>
+
 namespace Solid
 {
 namespace Backends
@@ -51,6 +53,8 @@ public:
     const QString vendor();
     const QString product();
     const QString description();
+
+    DADiskRef daRef() const;
 
 private:
     class Private;

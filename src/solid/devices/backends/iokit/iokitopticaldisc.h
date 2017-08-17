@@ -37,7 +37,12 @@ class IOKitOpticalDisc : public IOKitVolume, virtual public Solid::Ifaces::Optic
 
 public:
     IOKitOpticalDisc(IOKitDevice *device);
+    IOKitOpticalDisc(const IOKitDevice *device);
     virtual ~IOKitOpticalDisc();
+
+    // overriden from IOKit::Block because optical discs must
+    // be accessed through the raw device.
+    virtual QString device() const;
 
     virtual Solid::OpticalDisc::ContentTypes availableContent() const;
     virtual Solid::OpticalDisc::DiscType discType() const;

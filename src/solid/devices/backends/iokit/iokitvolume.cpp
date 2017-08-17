@@ -184,3 +184,8 @@ const QString IOKitVolume::description()
     }
     return QString();
 }
+
+DADiskRef IOKitVolume::daRef() const
+{
+    return d->daRef;
+}

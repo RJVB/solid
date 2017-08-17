@@ -31,6 +31,8 @@
 
 #include <QDebug>
 #include <QSet>
+#include <QPointer>
+#include <QUrl>
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -72,13 +74,14 @@ static DeviceInterfaceTypes typesFromEntry(const io_registry_entry_t &entry,
         leaf = QStringLiteral("Leaf");
     if (IOObjectConformsTo(entry, "IOCDMedia")
         || IOObjectConformsTo(entry, "IODVDMedia")
-        || IOObjectConformsTo(entry, "IOCDMedia")) {
+        || IOObjectConformsTo(entry, "IOBDMedia")) {
         mainType = Solid::DeviceInterface::OpticalDrive;
         types << mainType
             << Solid::DeviceInterface::OpticalDisc;
     }
     if (properties.contains(bsdName) && properties.value(bsdName).toString().startsWith(QStringLiteral("disk"))) {
-        if (properties.contains(leaf) && properties.value(leaf).toBool() == false) {
+        if ((properties.contains(leaf) && properties.value(leaf).toBool() == false)
+            || mainType == Solid::DeviceInterface::OpticalDrive) {
             if (mainType == Solid::DeviceInterface::Unknown) {
                 mainType = Solid::DeviceInterface::StorageDrive;
             }
@@ -191,6 +194,10 @@ void IOKitDevicePrivate::init(const QString &udiString, const io_registry_entry_
 
     parentUdi = getParentDeviceUdi(entry);
     type = typesFromEntry(entry, properties, mainType);
+//     if (udi.contains(QStringLiteral("IOBD")) || udi.contains(QStringLiteral("BD PX"))) {
+//         qWarning() << "Solid: BlueRay entry" << entry << "mainType=" << mainType << "typeList:" << type
+//             << "with properties" << properties;
+//     }
     if (mainType != Solid::DeviceInterface::Unknown) {
 //         qWarning() << "Solid: entry" << entry << "mainType=" << mainType << "typeList:" << type
 //             << "with properties" << properties;
@@ -344,10 +351,19 @@ QString IOKitDevice::description() const
     case Solid::DeviceInterface::OpticalDisc:
         return IOKitStorage(this).description();
         break;
-    case Solid::DeviceInterface::StorageVolume:
-        return IOKitVolume(this).description();
+    case Solid::DeviceInterface::StorageVolume: {
+        const QString volLabel = IOKitVolume(this).description();
+        const QString mountPoint = IOKitStorageAccess(this).filePath();
+        if (volLabel.isEmpty()) {
+            return QUrl::fromLocalFile(mountPoint).fileName();
+        } else if (mountPoint.startsWith(QStringLiteral("/Volumes/"))) {
+            // Mac users will expect to see the name under which the volume is mounted here.
+            return QString(QStringLiteral("%1 (%2)")).arg(QUrl::fromLocalFile(mountPoint).fileName()).arg(volLabel);
+        }
+        return volLabel;
         break;
-     }
+    }
+    }
     return product(); // TODO
 }
 
@@ -361,17 +377,35 @@ QString IOKitDevice::icon() const
             return "computer";
         }
 
-    } else if (d->mainType == Solid::DeviceInterface::StorageDrive) {
+    } else if (d->type.contains(Solid::DeviceInterface::StorageDrive)) {
         IOKitStorage drive(this);
         Solid::StorageDrive::DriveType driveType = drive.driveType();
 
         switch (driveType) {
         case Solid::StorageDrive::Floppy:
+            // why not :)
             return QStringLiteral("media-floppy");
             break;
-        case Solid::StorageDrive::CdromDrive:
-            return QStringLiteral("drive-optical");
+        case Solid::StorageDrive::CdromDrive: {
+            const IOKitOpticalDisc disc(this);
+            if (disc.availableContent() == Solid::OpticalDisc::Audio ) {
+                return QStringLiteral("media-optical-audio");
+            } else switch (disc.discType()) {
+                case Solid::OpticalDisc::CdRom:
+                    return QStringLiteral("media-optical-data");
+                    break;
+                case Solid::OpticalDisc::CdRecordable:
+                case Solid::OpticalDisc::CdRewritable:
+                    return QStringLiteral("media-optical-recordable");
+                    break;
+                case Solid::OpticalDisc::BluRayRom:
+                case Solid::OpticalDisc::BluRayRecordable:
+                case Solid::OpticalDisc::BluRayRewritable:
+                    return QStringLiteral("media-optical-blu-ray");
+                    break;
+            }
             break;
+        }
         case Solid::StorageDrive::SdMmc:
             return QStringLiteral("media-flash-sd-mmc");
             break;
@@ -484,8 +518,13 @@ QObject *IOKitDevice::createDeviceInterface(const Solid::DeviceInterface::Type &
         }
         break;
     case Solid::DeviceInterface::Block:
-        if (d->type.contains(Solid::DeviceInterface::StorageDrive)
-            || d->type.contains(Solid::DeviceInterface::StorageVolume)) {
+        if (d->type.contains(Solid::DeviceInterface::OpticalDisc)) {
+            iface = new IOKitOpticalDisc(this);
+        } else if (d->type.contains(Solid::DeviceInterface::StorageVolume)) {
+            iface = new IOKitVolume(this);
+        } else if (d->type.contains(Solid::DeviceInterface::StorageDrive)) {
+            iface = new IOKitStorage(this);
+        } else {
             iface = new Block(this);
         }
         break;

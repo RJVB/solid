@@ -290,22 +290,24 @@ Solid::OpticalDrive::MediumTypes IOKitOpticalDrive::supportedMedia() const
 {
     Solid::OpticalDrive::MediumTypes supported;
 
-    uint32_t cdFlags = d->property(QStringLiteral("CD Features")).toInt();
-    uint32_t dvdFlags = d->property(QStringLiteral("DVD Features")).toInt();
-    uint32_t bdFlags = d->property(QStringLiteral("BD Features")).toInt();
+    uint32_t cdFeatures = d->property(QStringLiteral("CD Features")).toInt();
+    uint32_t dvdFeatures = d->property(QStringLiteral("DVD Features")).toInt();
+    uint32_t bdFeatures = d->property(QStringLiteral("BD Features")).toInt();
+
+    qDebug() << Q_FUNC_INFO << "cdFeatures" << cdFeatures << "dvdFeatures" << dvdFeatures << "bdFeatures" << bdFeatures;
 
     foreach (const Solid::OpticalDrive::MediumType type, d->cdTypeMap.keys()) {
-        if (cdFlags & d->cdTypeMap[type]) {
+        if (cdFeatures & d->cdTypeMap[type]) {
             supported |= type;
         }
     }
     foreach (const Solid::OpticalDrive::MediumType type, d->dvdTypeMap.keys()) {
-        if (dvdFlags & d->dvdTypeMap[type]) {
+        if (dvdFeatures & d->dvdTypeMap[type]) {
             supported |= type;
         }
     }
     foreach (const Solid::OpticalDrive::MediumType type, d->bdTypeMap.keys()) {
-        if (bdFlags & d->bdTypeMap[type]) {
+        if (bdFeatures & d->bdTypeMap[type]) {
             supported |= type;
             if (d->bdTypeMap[type] == kBDFeaturesWriteMask) {
                 supported |= Solid::OpticalDrive::Bdre;

@@ -66,6 +66,14 @@ IOKitStorageAccess::IOKitStorageAccess(IOKitDevice *device)
             this, SLOT(onPropertyChanged(QMap<QString,int>)));
 }
 
+IOKitStorageAccess::IOKitStorageAccess(const IOKitDevice *device)
+    : DeviceInterface(device)
+    , d(new Private(device))
+{
+    connect(device, SIGNAL(propertyChanged(QMap<QString,int>)),
+            this, SLOT(onPropertyChanged(QMap<QString,int>)));
+}
+
 IOKitStorageAccess::~IOKitStorageAccess()
 {
     delete d;

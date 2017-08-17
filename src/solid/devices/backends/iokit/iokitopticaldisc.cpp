@@ -20,6 +20,10 @@
 
 #include "iokitopticaldisc.h"
 
+#include <QDebug>
+
+#include <CoreFoundation/CoreFoundation.h>
+
 using namespace Solid::Backends::IOKit;
 
 IOKitOpticalDisc::IOKitOpticalDisc(IOKitDevice *device)
@@ -27,8 +31,23 @@ IOKitOpticalDisc::IOKitOpticalDisc(IOKitDevice *device)
 {
 }
 
+IOKitOpticalDisc::IOKitOpticalDisc(const IOKitDevice *device)
+    : IOKitVolume(device)
+{
+}
+
 IOKitOpticalDisc::~IOKitOpticalDisc()
 {
+}
+
+QString IOKitOpticalDisc::device() const
+{
+    const QString devName = m_device->property(QLatin1String("BSD Name")).toString();
+    if (devName.startsWith(QLatin1Char('r'))) {
+        return QStringLiteral("/dev/") + devName;
+    } else {
+        return QStringLiteral("/dev/r") + devName;
+    }
 }
 
 Solid::OpticalDisc::ContentTypes IOKitOpticalDisc::availableContent() const
@@ -41,6 +60,14 @@ Solid::OpticalDisc::ContentTypes IOKitOpticalDisc::availableContent() const
 
 Solid::OpticalDisc::DiscType IOKitOpticalDisc::discType() const
 {
+//     if (daRef()) {
+//         CFDictionaryRef dict = DADiskCopyDescription(daRef());
+//         if (dict) {
+//             qWarning() << Q_FUNC_INFO;
+//             CFShow(dict);
+//             CFRelease(dict);
+//         }
+//     }
     QString type = m_device->property(QStringLiteral("Type")).toString();
 
     if (type == "CD-ROM") {

@@ -37,6 +37,7 @@ class IOKitStorageAccess : public DeviceInterface, virtual public Solid::Ifaces:
 
 public:
     IOKitStorageAccess(IOKitDevice *device);
+    IOKitStorageAccess(const IOKitDevice *device);
     virtual ~IOKitStorageAccess();
 
     bool isAccessible() const Q_DECL_OVERRIDE;

@@ -118,7 +118,9 @@ Solid::StorageDrive::DriveType IOKitStorage::driveType() const
     const QString udi = m_device->udi();
     const QString type = m_device->property(QLatin1String("className")).toString();
 
-    if (type == QStringLiteral("IOCDMedia")) {
+    if (type == QStringLiteral("IOCDMedia")
+        || type == QStringLiteral("IOBDMedia")
+        || type == QStringLiteral("IODVDMedia")) {
         return Solid::StorageDrive::CdromDrive;
     }
     if (udi.contains(QStringLiteral("/SDXC@"))) {
