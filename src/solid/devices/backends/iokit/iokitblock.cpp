@@ -50,6 +50,9 @@ int Block::deviceMinor() const
 
 QString Block::device() const
 {
-    return QStringLiteral("/dev/") + m_device->property(QLatin1String("BSD Name")).toString();
+    if (m_device->iOKitPropertyExists(QStringLiteral("BSD Name"))) {
+        return QStringLiteral("/dev/") + m_device->property(QLatin1String("BSD Name")).toString();
+    }
+    return QString();
 }
 

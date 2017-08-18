@@ -520,12 +520,12 @@ QObject *IOKitDevice::createDeviceInterface(const Solid::DeviceInterface::Type &
     case Solid::DeviceInterface::Block:
         if (d->type.contains(Solid::DeviceInterface::OpticalDisc)) {
             iface = new IOKitOpticalDisc(this);
+        } else if (d->type.contains(Solid::DeviceInterface::OpticalDrive)) {
+            iface = new IOKitOpticalDrive(this);
         } else if (d->type.contains(Solid::DeviceInterface::StorageVolume)) {
             iface = new IOKitVolume(this);
         } else if (d->type.contains(Solid::DeviceInterface::StorageDrive)) {
             iface = new IOKitStorage(this);
-        } else {
-            iface = new Block(this);
         }
         break;
     case Solid::DeviceInterface::StorageVolume:
